@@ -51,6 +51,11 @@ pub enum NoticeCode {
     PostProcessFailed,
     FileTranscriptionFailed,
     FilePostProcessFailed,
+    VoxtralKeyMissing,
+    VoxtralKeyRejected,
+    VoxtralRateLimited,
+    VoxtralUnreachable,
+    VoxtralFailed,
 }
 
 impl NoticeCode {
@@ -65,7 +70,12 @@ impl NoticeCode {
             | Self::RecordingFailed
             | Self::ModelLoadFailed
             | Self::NoModelSelected
-            | Self::FileTranscriptionFailed => NoticeLevel::Error,
+            | Self::FileTranscriptionFailed
+            | Self::VoxtralKeyMissing
+            | Self::VoxtralKeyRejected
+            | Self::VoxtralRateLimited
+            | Self::VoxtralUnreachable
+            | Self::VoxtralFailed => NoticeLevel::Error,
             Self::PostProcessFailed | Self::FilePostProcessFailed => NoticeLevel::Warning,
         }
     }
@@ -85,6 +95,11 @@ impl NoticeCode {
             Self::PostProcessFailed => &strings.post_process_failed_title,
             Self::FileTranscriptionFailed => &strings.file_transcription_failed_title,
             Self::FilePostProcessFailed => &strings.file_post_process_failed_title,
+            Self::VoxtralKeyMissing => &strings.voxtral_key_missing_title,
+            Self::VoxtralKeyRejected => &strings.voxtral_key_rejected_title,
+            Self::VoxtralRateLimited => &strings.voxtral_rate_limited_title,
+            Self::VoxtralUnreachable => &strings.voxtral_unreachable_title,
+            Self::VoxtralFailed => &strings.voxtral_failed_title,
         }
     }
 }

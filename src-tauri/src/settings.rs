@@ -349,6 +349,18 @@ pub enum VadBackend {
     Earshot,
 }
 
+/// What turns a recording into text.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscriptionProvider {
+    /// The selected local model.
+    #[default]
+    Local,
+    /// Mistral's Voxtral API, after the recording ends. Its key lives in the
+    /// OS credential store (`cloud::keychain`), not in settings.
+    MistralVoxtral,
+}
+
 /// When Handy's spoken-language detector picks the language for Auto.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type, Default)]
 #[serde(rename_all = "snake_case")]
@@ -467,6 +479,8 @@ pub struct AppSettings {
     pub log_level: LogLevel,
     #[serde(default)]
     pub custom_words: Vec<String>,
+    #[serde(default)]
+    pub transcription_provider: TranscriptionProvider,
     #[serde(default)]
     pub model_unload_timeout: ModelUnloadTimeout,
     #[serde(default = "default_word_correction_threshold")]
@@ -1072,6 +1086,7 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         vad_backend: VadBackend::default(),
+        transcription_provider: TranscriptionProvider::default(),
         long_form_chunking: default_long_form_chunking(),
         language_detection: LanguageDetectionMode::default(),
         language_detection_window_secs: default_language_detection_window_secs(),
@@ -1675,6 +1690,10 @@ mod tests {
         assert_eq!(settings.sound_theme, SoundTheme::Pop);
         assert!(settings.filler_word_removal_enabled);
         assert_eq!(settings.vad_backend, VadBackend::Silero);
+        assert_eq!(
+            settings.transcription_provider,
+            TranscriptionProvider::Local
+        );
         assert!(
             settings.long_form_chunking,
             "chunking is on for settings saved before it existed"

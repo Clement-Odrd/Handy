@@ -4,6 +4,8 @@ use crate::audio_toolkit::{
     remove_filler_words, OutputLanguageEvidence,
 };
 use crate::chinese_script::{chinese_variety_for_text, convert_chinese_script};
+use crate::cloud::keychain::voxtral_api_key;
+use crate::cloud::voxtral::{self, VoxtralError, VoxtralRequest};
 use crate::engine_supervisor::{
     CancelMark, DeviceInfo, DeviceSelector, EngineError, EngineSupervisor, LoadSpec, LoadedInfo,
     Unloading,
@@ -18,6 +20,7 @@ use crate::notices::{self, Notice, NoticeCode, NoticeSource};
 use crate::overlay;
 use crate::settings::{
     get_settings, AppSettings, ChineseScript, ModelUnloadTimeout, TranscribeAcceleratorSetting,
+    TranscriptionProvider,
 };
 use anyhow::Result;
 use chunked::{ChunkSetup, ChunkedDecode};
@@ -756,6 +759,12 @@ impl TranscriptionManager {
         ));
     }
 
+    /// Voxtral is the engine but no API key is saved, so a recording would
+    /// have nothing to transcribe it. Ends when a dictation next succeeds.
+    pub fn raise_voxtral_key_missing(&self) {
+        self.raise_dictation_notice(VoxtralError::MissingKey.notice(NoticeSource::Dictation));
+    }
+
     fn raise_dictation_notice(&self, notice: Notice) {
         // A recording in progress keeps the overlay; its transcription fails
         // next and reports that itself.
@@ -982,10 +991,17 @@ impl TranscriptionManager {
     }
 
     /// Transcribe a finished recording: what its live decode produced, or a
-    /// batch run of the whole recording when there is no live result.
+    /// batch run of the whole recording when there is no live result. With
+    /// Voxtral as the engine, that batch run is a Mistral API call.
     pub fn transcribe_recording(&self, samples: Vec<f32>) -> Result<Transcription> {
         let started = Instant::now();
-        let live = self.finalize_live(samples.len())?;
+        let mut live = self.finalize_live(samples.len())?;
+        if live.is_none() && !samples.is_empty() {
+            let settings = get_settings(&self.app_handle);
+            if settings.transcription_provider == TranscriptionProvider::MistralVoxtral {
+                live = Some(self.decode_voxtral(&samples, &settings)?);
+            }
+        }
         self.complete(started, samples, live)
     }
 
@@ -1067,6 +1083,40 @@ impl TranscriptionManager {
         self.touch_activity();
         let batch = self.batch_context(&audio)?;
         self.transcribe_cpp(mark, batch, audio)
+    }
+
+    /// Transcribe a whole clip with Mistral Voxtral instead of the local
+    /// model. Blocks until the API answers; a cancel (the same one that stops
+    /// a local run) abandons the request.
+    ///
+    /// # Errors
+    /// A [`VoxtralError`] (missing or rejected key, quota, network, HTTP), so
+    /// callers can raise its own notice; or [`EngineError::Cancelled`].
+    fn decode_voxtral(&self, audio: &[f32], settings: &AppSettings) -> Result<RunOutcome> {
+        let mark = self.engine.cancel_mark();
+        let api_key = voxtral_api_key()
+            .map_err(VoxtralError::Local)?
+            .ok_or(VoxtralError::MissingKey)?;
+        let language = voxtral::api_language(&settings.selected_language);
+        let request = VoxtralRequest::new(audio, language.clone(), &settings.custom_words)?;
+        debug!(
+            "Voxtral request: model={}, language={:?}, context_bias_terms={}",
+            voxtral::VOXTRAL_MODEL,
+            language,
+            voxtral::context_bias(&settings.custom_words).len()
+        );
+        let transcript = match voxtral::transcribe_blocking(&api_key, request, &|| {
+            self.engine.is_cancelled(mark)
+        }) {
+            Ok(transcript) => transcript,
+            Err(VoxtralError::Cancelled) => return Err(EngineError::Cancelled.into()),
+            Err(e) => return Err(e.into()),
+        };
+        Ok(RunOutcome {
+            setup: voxtral_setup(language),
+            text: transcript.text,
+            model_detected_language: transcript.language,
+        })
     }
 
     /// Waits out any model load, then reads what a batch transcription of
@@ -1394,6 +1444,28 @@ fn run_setup(info: &LoadedInfo, settings: &AppSettings, language: LanguageDecisi
         languages,
         applied_language_hint,
         output_was_translated,
+    }
+}
+
+/// How a Voxtral transcription ran, for post-processing. The custom words
+/// went to the API only as a bias, which is experimental for some languages,
+/// so the vocabulary stays empty and fuzzy correction still runs on the text.
+fn voxtral_setup(language: Option<String>) -> RunSetup {
+    RunSetup {
+        run_options: RunOptions::default(),
+        language: LanguageDecision {
+            language: language.clone(),
+            source: if language.is_some() {
+                LanguageSource::Selected
+            } else {
+                LanguageSource::Model
+            },
+        },
+        // Voxtral advertises no fixed list; text-based detection then
+        // considers every language.
+        languages: Vec::new(),
+        applied_language_hint: language,
+        output_was_translated: false,
     }
 }
 

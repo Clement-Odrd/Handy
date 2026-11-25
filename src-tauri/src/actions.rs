@@ -2,6 +2,7 @@
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::VadPolicy;
+use crate::cloud::voxtral::VoxtralError;
 use crate::managers::audio::{recording_notice_code, AudioRecordingManager};
 use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
@@ -9,7 +10,9 @@ use crate::managers::transcription::policy::{live_decode, LiveDecode, ModelTrait
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::{Transcription, TranscriptionManager};
 use crate::notices::{self, Notice, NoticeCode, NoticeSource};
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{
+    get_settings, AppSettings, OverlayStyle, TranscriptionProvider, APPLE_INTELLIGENCE_PROVIDER_ID,
+};
 use crate::shortcut;
 use crate::tray::{set_tray_state, TrayIconState};
 use crate::utils::{
@@ -524,9 +527,13 @@ impl ShortcutAction for TranscribeAction {
 
         // Load ASR model and VAD model in parallel
         let kickoff_started = Instant::now();
+        let start_settings = get_settings(app);
+        // Voxtral transcribes in the cloud once the recording ends: no local
+        // model to load, and no live decode (which needs one).
+        let cloud = start_settings.transcription_provider == TranscriptionProvider::MistralVoxtral;
         // An empty selection has nothing to load; the check below says so.
-        let selected_model = get_settings(app).selected_model;
-        let load_started = !selected_model.is_empty() && tm.initiate_model_load(true);
+        let selected_model = start_settings.selected_model;
+        let load_started = !cloud && !selected_model.is_empty() && tm.initiate_model_load(true);
         let rm_clone = Arc::clone(&rm);
         std::thread::spawn(move || {
             if let Err(e) = rm_clone.preload_vad() {
@@ -537,7 +544,15 @@ impl ShortcutAction for TranscribeAction {
 
         // Don't open the mic if nothing can transcribe the recording. A load
         // started above reports its own failure; one already running doesn't.
-        if !tm.is_model_loaded() {
+        if cloud {
+            // A missing key fails every recording; say so before one starts.
+            // A key that can't be checked gets its chance at transcription.
+            if matches!(crate::cloud::keychain::voxtral_api_key(), Ok(None)) {
+                warn!("Not starting recording: Voxtral is selected but no API key is saved");
+                tm.raise_voxtral_key_missing();
+                return;
+            }
+        } else if !tm.is_model_loaded() {
             if selected_model.is_empty() {
                 warn!("Not starting recording: no model is selected");
                 tm.raise_no_model_selected();
@@ -573,10 +588,12 @@ impl ShortcutAction for TranscribeAction {
         // Use the app-facing model capability as the single pre-recording source
         // for live streaming decisions. Unknown support is represented as false
         // until the model registry is updated by discovery or runtime load.
-        let model_supports_streaming = selected_model_info
-            .as_ref()
-            .map(|m| m.supports_streaming)
-            .unwrap_or(false);
+        // Voxtral's batch API doesn't stream.
+        let model_supports_streaming = !cloud
+            && selected_model_info
+                .as_ref()
+                .map(|m| m.supports_streaming)
+                .unwrap_or(false);
         let vad_policy = if !settings.vad_enabled {
             VadPolicy::Disabled
         } else if model_supports_streaming {
@@ -591,7 +608,7 @@ impl ShortcutAction for TranscribeAction {
             streaming: model_supports_streaming,
             long_form: false,
         };
-        if live_decode(expected_model, settings.long_form_chunking) != LiveDecode::None {
+        if !cloud && live_decode(expected_model, settings.long_form_chunking) != LiveDecode::None {
             tm.start_stream();
         }
         let plan_elapsed = plan_started.elapsed();
@@ -1000,14 +1017,17 @@ impl ShortcutAction for TranscribeAction {
                             }
 
                             error!("Transcription failed: {}", err);
-                            notices::raise(
-                                &ah,
-                                Notice::new(
+                            // A Voxtral failure has its own notice (key, quota,
+                            // network) telling the user what to fix.
+                            let notice = match err.downcast_ref::<VoxtralError>() {
+                                Some(voxtral) => voxtral.notice(NoticeSource::Dictation),
+                                None => Notice::new(
                                     NoticeCode::TranscriptionFailed,
                                     NoticeSource::Dictation,
                                 )
                                 .with_detail(err.to_string()),
-                            );
+                            };
+                            notices::raise(&ah, notice);
                             // Save entry with empty text so user can retry
                             if wav_saved {
                                 if let Err(save_err) = hm.save_entry(

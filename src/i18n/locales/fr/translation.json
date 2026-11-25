@@ -431,6 +431,25 @@
       "rescan": {
         "label": "Réanalyser",
         "tooltip": "Réanalyser pour détecter les modèles ajoutés au dossier des modèles ou au cache Hugging Face en dehors de Handy"
+      },
+      "provider": {
+        "title": "Moteur de transcription",
+        "description": "Où vos enregistrements sont transformés en texte.",
+        "options": {
+          "local": "Modèle local (sur cet ordinateur)",
+          "mistralVoxtral": "Mistral Voxtral (cloud)"
+        },
+        "cloudNote": "Les enregistrements sont envoyés à Mistral pour être transcrits. L'aperçu en direct n'est pas disponible avec ce moteur.",
+        "apiKey": {
+          "title": "Clé API Mistral",
+          "description": "Conservée dans le trousseau du système, jamais dans les paramètres de Handy.",
+          "placeholder": "Collez votre clé API",
+          "save": "Enregistrer",
+          "saved": "Clé enregistrée",
+          "clear": "Effacer",
+          "saveFailed": "Impossible d'enregistrer la clé API",
+          "clearFailed": "Impossible d'effacer la clé API"
+        }
       }
     },
     "languages": {
@@ -957,7 +976,16 @@
     "filePostProcessFailedTitle": "Transcrit sans post-traitement",
     "filePostProcessFailed": "Le post-traitement n'a pas abouti, la transcription a donc été enregistrée telle quelle.",
     "fileTranscriptionFailedTitle": "Échec de la transcription du fichier",
-    "transcriptionFailedTitle": "Échec de la transcription"
+    "transcriptionFailedTitle": "Échec de la transcription",
+    "voxtralKeyMissingTitle": "Clé API Mistral manquante",
+    "voxtralKeyMissing": "Ajoutez votre clé API Mistral dans Paramètres > Modèles, ou revenez à un modèle local.",
+    "voxtralKeyRejectedTitle": "Clé API Mistral refusée",
+    "voxtralKeyRejected": "Mistral n'a pas accepté la clé API. Vérifiez-la dans Paramètres > Modèles.",
+    "voxtralRateLimitedTitle": "Quota Mistral atteint",
+    "voxtralRateLimited": "Mistral limite les requêtes ou votre quota est épuisé. Patientez un instant ou vérifiez votre abonnement Mistral.",
+    "voxtralUnreachableTitle": "Mistral injoignable",
+    "voxtralUnreachable": "Vérifiez votre connexion internet puis réessayez. L'enregistrement est conservé dans l'historique.",
+    "voxtralFailedTitle": "Échec de la transcription Voxtral"
   },
   "notices": {
     "errorOne": "{{n}} erreur",

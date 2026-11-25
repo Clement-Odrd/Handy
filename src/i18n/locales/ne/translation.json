@@ -431,6 +431,25 @@
       "rescan": {
         "label": "फेरि स्क्यान गर्नुहोस्",
         "tooltip": "Handy बाहिरबाट मोडेल फोल्डर वा Hugging Face क्यासमा थपिएका मोडेलहरू फेरि स्क्यान गर्नुहोस्"
+      },
+      "provider": {
+        "title": "Transcription engine",
+        "description": "Where your recordings are turned into text.",
+        "options": {
+          "local": "Local model (on this computer)",
+          "mistralVoxtral": "Mistral Voxtral (cloud)"
+        },
+        "cloudNote": "Recordings are sent to Mistral to be transcribed. Live preview isn't available with this engine.",
+        "apiKey": {
+          "title": "Mistral API key",
+          "description": "Kept in your system's keychain, never in Handy's settings.",
+          "placeholder": "Paste your API key",
+          "save": "Save",
+          "saved": "Key saved",
+          "clear": "Remove",
+          "saveFailed": "Couldn't save the API key",
+          "clearFailed": "Couldn't remove the API key"
+        }
       }
     },
     "languages": {
@@ -957,7 +976,16 @@
     "filePostProcessFailedTitle": "पोस्ट प्रोसेस बिना ट्रान्सक्राइब गरियो",
     "filePostProcessFailed": "पोस्ट प्रोसेस पूरा भएन, त्यसैले ट्रान्सक्रिप्ट जस्तो थियो त्यस्तै सुरक्षित गरियो।",
     "fileTranscriptionFailedTitle": "फाइल ट्रान्सक्रिप्सन गर्न सकिएन",
-    "transcriptionFailedTitle": "ट्रान्सक्रिप्सन गर्न सकिएन"
+    "transcriptionFailedTitle": "ट्रान्सक्रिप्सन गर्न सकिएन",
+    "voxtralKeyMissingTitle": "Mistral API Key Missing",
+    "voxtralKeyMissing": "Add your Mistral API key in Settings > Models, or switch back to a local model.",
+    "voxtralKeyRejectedTitle": "Mistral API Key Rejected",
+    "voxtralKeyRejected": "Mistral didn't accept the API key. Check it in Settings > Models.",
+    "voxtralRateLimitedTitle": "Mistral Quota Reached",
+    "voxtralRateLimited": "Mistral is limiting requests or your quota is used up. Wait a moment, or check your Mistral plan.",
+    "voxtralUnreachableTitle": "Can't Reach Mistral",
+    "voxtralUnreachable": "Check your internet connection and try again. The recording is kept in History.",
+    "voxtralFailedTitle": "Voxtral Transcription Failed"
   },
   "notices": {
     "errorOne": "{{n}} त्रुटि",

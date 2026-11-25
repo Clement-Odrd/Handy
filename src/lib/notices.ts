@@ -58,6 +58,25 @@ const NOTICE_DISPLAY: Record<NoticeCode, NoticeDisplay> = {
     title: "errors.filePostProcessFailedTitle",
     explanation: (t) => t("errors.filePostProcessFailed"),
   },
+  VoxtralKeyMissing: {
+    title: "errors.voxtralKeyMissingTitle",
+    explanation: (t) => t("errors.voxtralKeyMissing"),
+  },
+  VoxtralKeyRejected: {
+    title: "errors.voxtralKeyRejectedTitle",
+    explanation: (t) => t("errors.voxtralKeyRejected"),
+  },
+  VoxtralRateLimited: {
+    title: "errors.voxtralRateLimitedTitle",
+    explanation: (t) => t("errors.voxtralRateLimited"),
+  },
+  VoxtralUnreachable: {
+    title: "errors.voxtralUnreachableTitle",
+    explanation: (t) => t("errors.voxtralUnreachable"),
+  },
+  VoxtralFailed: {
+    title: "errors.voxtralFailedTitle",
+  },
 };
 
 export const noticeDisplay = (code: NoticeCode) => NOTICE_DISPLAY[code];

@@ -416,6 +416,13 @@ impl EngineSupervisor {
         CancelMark(self.shared.epoch())
     }
 
+    /// Whether [`cancel`](Self::cancel) was called since `mark` was taken.
+    /// For work done outside the engine (a cloud transcription) that should
+    /// stop on the same cancel.
+    pub fn is_cancelled(&self, mark: CancelMark) -> bool {
+        self.shared.cancelled_since(mark.0)
+    }
+
     /// [`transcribe`](Self::transcribe), cancelled by any cancel since `mark`.
     pub fn transcribe_since(
         &self,
